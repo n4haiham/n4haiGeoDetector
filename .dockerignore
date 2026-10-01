@@ -1,0 +1,8 @@
+*
+!Dockerfile
+!requirements.txt
+!arGeoDetector.py
+!displaygeo.py
+!displaygeo_web.py
+!boundaries/
+!boundaries/*.kml

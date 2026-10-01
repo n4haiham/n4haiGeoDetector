@@ -1,0 +1,17 @@
+[Unit]
+Description=n4haiGeoDetector LCD container
+Requires=docker.service
+After=docker.service network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStartPre=-/usr/bin/docker rm -f n4hai-geodetector
+ExecStart=/usr/local/bin/n4hai-geodetector-run /etc/n4hai-geodetector.env
+ExecStop=-/usr/bin/docker stop --time 15 n4hai-geodetector
+Restart=always
+RestartSec=10
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
