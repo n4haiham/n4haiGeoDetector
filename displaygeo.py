@@ -72,6 +72,8 @@ class GeoDisplay(geoBase):
         self.entered_at = None
         self.last_county = None
         self.county_highlight_until = 0.0
+        self.grid_highlight_until = 0.0
+        self.last_grid = None
         super().__init__(opts, self.geoCB)
         self.county_log = os.path.join(self.appDirs.user_config_dir, "county_entries.csv")
         self.log_county_event("startup")
@@ -84,6 +86,9 @@ class GeoDisplay(geoBase):
         msg_type, value = msg
         with self.lock:
             if msg_type == geoMsg.GRID:
+                if value not in ("", "-", "------") and value != self.last_grid:
+                    self.grid_highlight_until = time.monotonic() + 1
+                    self.last_grid = value
                 self.grid = value
             elif msg_type == geoMsg.CNTY:
                 self.county, self.county_abbr = value[:2]
@@ -109,6 +114,11 @@ class GeoDisplay(geoBase):
         with self.lock:
             return (self.county_abbr not in ("", "UNK", "-")
                     and time.monotonic() < self.county_highlight_until)
+
+    def highlight_grid(self):
+        with self.lock:
+            return (self.grid not in ("", "-", "------")
+                    and time.monotonic() < self.grid_highlight_until)
 
     def log_county_event(self, event, timestamp=None):
         timestamp = timestamp or datetime.datetime.now(datetime.timezone.utc)
@@ -217,6 +227,8 @@ def generateLCDImage(geo_display):
                  if hasattr(geo_display, "highlight_county") else False)
     if highlight:
         draw.rectangle((10, 8, WIDTH - 11, 88), fill="white")
+    grid_highlight = (geo_display.highlight_grid()
+                      if hasattr(geo_display, "highlight_grid") else False)
 
     # Center each line using its visible bounds, including font bearings.
     for text, font, top in (
@@ -226,7 +238,11 @@ def generateLCDImage(geo_display):
     ):
         left, upper, right, _bottom = draw.textbbox((0, 0), text, font=font)
         x = (WIDTH - (right - left)) // 2 - left
-        fill = "black" if highlight and top == 20 else "white"
+        if grid_highlight and top == 165:
+            draw.rectangle((x + left - 12, top - 5,
+                            x + right + 12, top + _bottom - upper + 5), fill="white")
+        fill = "black" if ((highlight and top == 20)
+                           or (grid_highlight and top == 165)) else "white"
         draw.text((x, top - upper), text, fill=fill, font=font)
     entered_at = geo_display.get_entered_at() if hasattr(geo_display, "get_entered_at") else "--:--"
     entered_text = f"Entered at {entered_at}"

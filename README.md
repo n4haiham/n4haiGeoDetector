@@ -219,6 +219,9 @@ The LCD shows `Entered at HH:MM` in GMT for the current county. County changes
 highlight the county abbreviation as black text in a large white box for
 60 seconds, then restore white text on black. Repeated GPS updates in the same
 county do not extend the highlight.
+Grid square changes highlight the grid as black text on white for one second.
+Repeated updates do not extend that highlight, and grid-only changes do not
+add CSV rows; the CSV records county entries and app startups.
 County changes and each live app startup are appended to `county_entries.csv` in that same
 directory (locally, `~/.config/arGeoDetector/county_entries.csv`). Columns are
 `datetime_gmt,event,grid_square,county,county_abbr,state_abbr`. Startup records
