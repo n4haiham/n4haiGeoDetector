@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Show a sample location and color bars for five seconds each on the Pi LCD."""
+"""Repeat sample location and color bars 10 times, five seconds per screen."""
 
 import argparse
 import sys
@@ -45,12 +45,13 @@ def main():
 
     try:
         location = SampleLocation(args.county, args.abbr, args.grid)
-        print("Showing sample location for 5 seconds.", flush=True)
-        write_fb(generateLCDImage(location), args.framebuffer)
-        time.sleep(5)
-        print("Showing color bars and grayscale ramp for 5 seconds.", flush=True)
-        write_fb(color_test_image(), args.framebuffer)
-        time.sleep(5)
+        for cycle in range(1, 11):
+            print(f"Cycle {cycle}/10: showing sample location for 5 seconds.", flush=True)
+            write_fb(generateLCDImage(location), args.framebuffer)
+            time.sleep(5)
+            print(f"Cycle {cycle}/10: showing color bars and grayscale ramp for 5 seconds.", flush=True)
+            write_fb(color_test_image(), args.framebuffer)
+            time.sleep(5)
         write_fb(Image.new("RGB", (WIDTH, HEIGHT), "black"), args.framebuffer)
         print("LCD test complete; screen cleared.")
     except OSError as error:

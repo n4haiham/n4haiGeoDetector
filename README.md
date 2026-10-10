@@ -7,7 +7,8 @@ The LCD driver must already expose a 480x320 RGB565 framebuffer compatible with
 `displaygeo.py`. This test runs directly on Raspberry Pi OS without Docker, GPS,
 or boundary files. It shows **sample** county and grid information with the Pi's
 current UTC time, IP address, and CPU temperature for five seconds, then color
-bars and a grayscale ramp for five seconds. It clears the screen and exits.
+bars and a grayscale ramp for five seconds. It repeats this sequence 10 times
+(about 100 seconds total), then clears the screen and exits.
 
 Install Git and Python, then clone this repository from GitHub:
 
