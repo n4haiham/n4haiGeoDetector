@@ -72,6 +72,7 @@ class GeoDisplay(geoBase):
         self.detector_thread = None
         self.state_abbr = ""
         self.entered_at = None
+        self.entered_monotonic = None
         self.last_county = None
         self.county_highlight_until = 0.0
         self.grid_highlight_until = 0.0
@@ -101,7 +102,8 @@ class GeoDisplay(geoBase):
                 identity = (self.state_abbr, self.county_abbr, self.county)
                 if self.county_abbr not in ("", "UNK", "-") and identity != self.last_county:
                     self.entered_at = datetime.datetime.now(datetime.timezone.utc)
-                    self.county_highlight_until = time.monotonic() + 60
+                    self.entered_monotonic = time.monotonic()
+                    self.county_highlight_until = self.entered_monotonic + 60
                     self.last_county = identity
                     self.log_county_event("county_entered", self.entered_at)
             elif msg_type == geoMsg.STAT:
@@ -128,6 +130,14 @@ class GeoDisplay(geoBase):
     def get_entered_at(self):
         with self.lock:
             return self.entered_at.strftime("%H:%M") if self.entered_at else "--:--"
+
+    def get_here_for(self):
+        with self.lock:
+            if self.entered_monotonic is None:
+                return "--:--"
+            minutes = max(0, int((time.monotonic() - self.entered_monotonic) // 60))
+            hours, minutes = divmod(minutes, 60)
+            return f"{hours:02d}:{minutes:02d}"
 
     def highlight_county(self):
         with self.lock:
@@ -230,8 +240,6 @@ def generateLCDImage(geo_display):
     county_abbr = county_abbr or "UNK"
 
 
-    # Get system info
-    utc_datetime = cmd("date -u '+%d %b %Y %H:%M:%S'")
 
     abbreviation_font = fit_text(draw, county_abbr, FONT_BOLD, 72, WIDTH - 40)
     county_font = fit_text(draw, county, FONT_REGULAR, 48, WIDTH - 40)
@@ -261,7 +269,11 @@ def generateLCDImage(geo_display):
     bbox = draw.textbbox((0, 0), entered_text, font=font_small)
     draw.text(((WIDTH - (bbox[2] - bbox[0])) // 2, 200), entered_text,
               fill="white", font=font_small)
-    draw.text((80, 235), utc_datetime, fill="white", font=font_small)
+    here_for = geo_display.get_here_for() if hasattr(geo_display, "get_here_for") else "--:--"
+    duration_text = f"Here for {here_for}"
+    bbox = draw.textbbox((0, 0), duration_text, font=font_small)
+    draw.text(((WIDTH - (bbox[2] - bbox[0])) // 2, 235), duration_text,
+              fill="white", font=font_small)
     status_text = status_cycle.text(geo_display)
     status_font = fit_text(draw, status_text, FONT_REGULAR, 24, WIDTH - 40)
     left, upper, right, _ = draw.textbbox((0, 0), status_text, font=status_font)

@@ -1,6 +1,7 @@
 """Rotating Pi status line, with graceful fallbacks for unavailable sensors."""
 
 from pathlib import Path
+import datetime
 import shutil
 import subprocess
 import time
@@ -15,6 +16,8 @@ def command(args):
 
 
 def host_status(index):
+    if index == 8:
+        return datetime.datetime.now(datetime.timezone.utc).strftime('%d %b %Y %H:%M:%S GMT')
     sys_root = Path('/host-sys') if Path('/host-sys').is_dir() else Path('/sys')
     try:
         if index == 0:
@@ -65,7 +68,7 @@ class StatusCycle:
 
     def text(self, display):
         now = time.monotonic()
-        index = int((now - self.started) // 5) % 8
+        index = int((now - self.started) // 5) % 9
         if index in (2, 3):
             return display.get_gps_status(index == 3) if hasattr(display, 'get_gps_status') else (
                 'GPS update: n/a' if index == 3 else 'GPS fix/sats: n/a')

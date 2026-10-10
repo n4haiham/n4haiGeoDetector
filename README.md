@@ -215,7 +215,11 @@ if devices are unavailable or the container exits. A stopped GPS thread causes
 the LCD app to exit so the service can reconnect. SIGTERM saves settings during
 normal shutdown. Settings and GPS logs persist in the Docker volume
 `n4hai-geodetector-data`, under `/data/arGeoDetector` inside the container.
-The LCD shows `Entered at HH:MM` in GMT for the current county. County changes
+The LCD shows `Entered at HH:MM` in GMT for the current county, with
+`Here for HH:MM` immediately below it showing elapsed hours and minutes.
+The elapsed timer resets on a new county entry and does not reset on GPS
+dropouts or repeated updates. Before the first county fix it shows `--:--`.
+County changes
 highlight the county abbreviation as black text in a large white box for
 60 seconds, then restore white text on black. Repeated GPS updates in the same
 county do not extend the highlight.
@@ -236,7 +240,8 @@ inside the container to access those devices.
 
 The bottom LCD line cycles every five seconds through IP address, CPU
 temperature, GPS fix/satellite count, seconds since the last GPS GGA update,
-undervoltage status, Pi uptime, free disk space, and Wi-Fi signal strength.
+undervoltage status, Pi uptime, free disk space, Wi-Fi signal strength, and
+current GMT date/time.
 GPS data older than 15 seconds is marked stale. A no-fix GGA record updates
 the GPS status but does not update the location. Missing sensors or unavailable
 Wi-Fi readings show `n/a`. Undervoltage reports the current kernel sensor alarm,
