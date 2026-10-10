@@ -28,10 +28,7 @@ class MockGeoDisplay:
 
     def get_county_grid(self):
         with self.lock:
-            county = self.county
-            if self.county_abbr and self.county_abbr != "UNK":
-                county = f"{county} ({self.county_abbr})"
-            return county, self.grid
+            return self.county, self.county_abbr, self.grid
 
     def update(self, county=None, county_abbr=None, grid=None):
         with self.lock:

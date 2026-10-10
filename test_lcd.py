@@ -12,11 +12,12 @@ from displaygeo import HEIGHT, WIDTH, generateLCDImage, write_fb
 
 class SampleLocation:
     def __init__(self, county, abbr, grid):
-        self.county = f"{county} ({abbr})" if abbr else county
+        self.county = county
+        self.county_abbr = abbr
         self.grid = grid
 
     def get_county_grid(self):
-        return self.county, self.grid
+        return self.county, self.county_abbr, self.grid
 
 
 def color_test_image():

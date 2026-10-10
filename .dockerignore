@@ -4,5 +4,6 @@
 !arGeoDetector.py
 !displaygeo.py
 !displaygeo_web.py
+!county_history_web.py
 !boundaries/
 !boundaries/*.kml

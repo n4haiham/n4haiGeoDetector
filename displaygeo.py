@@ -8,6 +8,9 @@ Created on 5/22/2026
 
 
 from PIL import Image, ImageDraw, ImageFont
+import csv
+import datetime
+import os
 import signal
 import subprocess
 import sys
@@ -16,6 +19,7 @@ import time
 from optparse import OptionParser
 
 from arGeoDetector import geoBase, geoMsg
+from county_history_web import make_server
 
 WIDTH = 480
 HEIGHT = 320
@@ -64,7 +68,13 @@ class GeoDisplay(geoBase):
         self.grid = "------"
         self.status = ""
         self.detector_thread = None
+        self.state_abbr = ""
+        self.entered_at = None
+        self.last_county = None
+        self.county_highlight_until = 0.0
         super().__init__(opts, self.geoCB)
+        self.county_log = os.path.join(self.appDirs.user_config_dir, "county_entries.csv")
+        self.log_county_event("startup")
 
         bnd = self.config.get('BOUNDARY','file', fallback=None)
         if bnd:
@@ -76,16 +86,38 @@ class GeoDisplay(geoBase):
             if msg_type == geoMsg.GRID:
                 self.grid = value
             elif msg_type == geoMsg.CNTY:
-                self.county, self.county_abbr = value
+                self.county, self.county_abbr = value[:2]
+                self.state_abbr = value[2] if len(value) > 2 else ""
+                identity = (self.state_abbr, self.county_abbr, self.county)
+                if self.county_abbr not in ("", "UNK", "-") and identity != self.last_county:
+                    self.entered_at = datetime.datetime.now(datetime.timezone.utc)
+                    self.county_highlight_until = time.monotonic() + 60
+                    self.last_county = identity
+                    self.log_county_event("county_entered", self.entered_at)
             elif msg_type == geoMsg.STAT:
                 self.status = value
 
     def get_county_grid(self):
         with self.lock:
-            county = self.county
-            if self.county_abbr and self.county_abbr != "UNK":
-                county = f"{county} ({self.county_abbr})"
-            return county, self.grid
+            return self.county, self.county_abbr, self.grid
+
+    def get_entered_at(self):
+        with self.lock:
+            return self.entered_at.strftime("%H:%M") if self.entered_at else "--:--"
+
+    def highlight_county(self):
+        with self.lock:
+            return (self.county_abbr not in ("", "UNK", "-")
+                    and time.monotonic() < self.county_highlight_until)
+
+    def log_county_event(self, event, timestamp=None):
+        timestamp = timestamp or datetime.datetime.now(datetime.timezone.utc)
+        with open(self.county_log, "a", newline="", encoding="utf-8") as output:
+            writer = csv.writer(output)
+            if output.tell() == 0:
+                writer.writerow(["datetime_gmt", "event", "grid_square", "county", "county_abbr", "state_abbr"])
+            writer.writerow([timestamp.strftime("%Y-%m-%d %H:%M:%S GMT"), event,
+                             self.grid, self.county, self.county_abbr, self.state_abbr])
 
     def start_detector(self):
         if self.mode == 1:
@@ -129,7 +161,9 @@ def cmd(c):
         return "n/a"
 
 
-def write_fb(img, device="/dev/fb0"):
+def write_fb(img, device="/dev/fb0", flip_screen=False):
+    if flip_screen:
+        img = img.transpose(Image.Transpose.ROTATE_180)
     img = img.convert("RGB")
     pixels = img.load()
 
@@ -163,7 +197,8 @@ def generateLCDImage(geo_display):
     draw = ImageDraw.Draw(img)
 
     # Get County and grid
-    county, grid = geo_display.get_county_grid()
+    county, county_abbr, grid = geo_display.get_county_grid()
+    county_abbr = county_abbr or "UNK"
 
 
     # Get system info
@@ -176,25 +211,31 @@ def generateLCDImage(geo_display):
     except:
         cpu_temp = "n/a"
 
-    county_font = fit_text(
-        draw,
-        county,
-        FONT_BOLD,
-        72,
-        WIDTH - 40
-    )
-    county_bbox = draw.textbbox((0, 0), county, font=county_font)
-    county_x = max(20, (WIDTH - (county_bbox[2] - county_bbox[0])) // 2)
+    abbreviation_font = fit_text(draw, county_abbr, FONT_BOLD, 72, WIDTH - 40)
+    county_font = fit_text(draw, county, FONT_REGULAR, 48, WIDTH - 40)
+    highlight = (geo_display.highlight_county()
+                 if hasattr(geo_display, "highlight_county") else False)
+    if highlight:
+        draw.rectangle((10, 8, WIDTH - 11, 88), fill="white")
 
-    grid_bbox = draw.textbbox((0, 0), grid, font=font_med)
-    grid_x = max(20, (WIDTH - (grid_bbox[2] - grid_bbox[0])) // 2)
-
-    # Draw text
-    draw.text((county_x, 40), county, fill="white", font=county_font)
-    draw.text((grid_x, 135), grid, fill="white", font=font_med)
-    draw.text((80, 180), utc_datetime, fill="white", font=font_small)
-    draw.text((20, 260), f"IP: {ip_addr}", fill="white", font=font_small)
-    draw.text((320, 260), cpu_temp, fill="white", font=font_small)
+    # Center each line using its visible bounds, including font bearings.
+    for text, font, top in (
+        (county_abbr, abbreviation_font, 20),
+        (county, county_font, 100),
+        (grid, font_med, 165),
+    ):
+        left, upper, right, _bottom = draw.textbbox((0, 0), text, font=font)
+        x = (WIDTH - (right - left)) // 2 - left
+        fill = "black" if highlight and top == 20 else "white"
+        draw.text((x, top - upper), text, fill=fill, font=font)
+    entered_at = geo_display.get_entered_at() if hasattr(geo_display, "get_entered_at") else "--:--"
+    entered_text = f"Entered at {entered_at}"
+    bbox = draw.textbbox((0, 0), entered_text, font=font_small)
+    draw.text(((WIDTH - (bbox[2] - bbox[0])) // 2, 200), entered_text,
+              fill="white", font=font_small)
+    draw.text((80, 235), utc_datetime, fill="white", font=font_small)
+    draw.text((20, 280), f"IP: {ip_addr}", fill="white", font=font_small)
+    draw.text((320, 280), cpu_temp, fill="white", font=font_small)
     return img
 
 def main():
@@ -207,10 +248,16 @@ def main():
                     help="NMEA data file for replay processing")
     parser.add_option("-b", "--boundary", dest="bndfile",
                     help="Boundary KML file or directory (default: ./boundaries)")
+    parser.add_option("--flip-screen", action="store_true", default=False,
+                    help="Rotate the LCD image 180 degrees")
+    parser.add_option("--history-host", default="0.0.0.0",
+                    help="County history web interface (default: 0.0.0.0)")
+    parser.add_option("--history-port", type="int", default=8081,
+                    help="County history HTTP port (default: 8081; 0 disables)")
     opts, _args = parser.parse_args()
 
     geo_display = GeoDisplay(opts)
-    geo_display.start_detector()
+    history_server = None
 
     def sigint(_sig, _frame):
         geo_display.stop_detector()
@@ -220,14 +267,23 @@ def main():
     signal.signal(signal.SIGTERM, sigint)
 
     try:
+        if opts.history_port:
+            history_server = make_server(geo_display.county_log, opts.history_host,
+                                         opts.history_port, geo_display.lock)
+            threading.Thread(target=history_server.serve_forever, daemon=True).start()
+            print(f"County history available on port {opts.history_port}", flush=True)
+        geo_display.start_detector()
         while True:
             if (geo_display.mode == 0 and geo_display.detector_thread
                     and not geo_display.detector_thread.is_alive()):
                 raise RuntimeError("GPS detector stopped; restarting the container is required")
             img = generateLCDImage(geo_display)
-            write_fb(img)
+            write_fb(img, flip_screen=opts.flip_screen)
             time.sleep(0.2)
     finally:
+        if history_server:
+            history_server.shutdown()
+            history_server.server_close()
         geo_display.stop_detector()
 
 

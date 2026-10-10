@@ -131,6 +131,58 @@ sudo nano /etc/n4hai-geodetector.env
 Set `GPS_DEVICE` to the GPS serial device (default `/dev/ttyUSB0`), `GPS_RATE`
 to its baud rate, and `FB_DEVICE` to the LCD framebuffer (often `/dev/fb0` or
 `/dev/fb1`). A `/dev/serial/by-id/...` GPS path avoids changes to USB numbering.
+
+For a USB GPS running at 4800 baud and an LCD on `/dev/fb0`, edit the existing
+lines in `/etc/n4hai-geodetector.env` to read:
+
+```sh
+GPS_DEVICE=/dev/ttyUSB0
+GPS_RATE=4800
+FB_DEVICE=/dev/fb0
+```
+
+For a GPS exposed as `/dev/ttyACM0` running at 9600 baud and an LCD on `/dev/fb1`:
+
+```sh
+GPS_DEVICE=/dev/ttyACM0
+GPS_RATE=9600
+FB_DEVICE=/dev/fb1
+```
+
+Use the baud rate specified by your GPS receiver. To find available serial
+devices and framebuffers on the Pi:
+
+```sh
+ls -l /dev/serial/by-id/
+ls -l /dev/ttyUSB* /dev/ttyACM* /dev/fb*
+```
+
+Missing paths may produce "No such file or directory" messages. If a stable
+serial path is listed, you can use its full name as `GPS_DEVICE`, for example:
+
+```sh
+GPS_DEVICE=/dev/serial/by-id/usb-YOUR_GPS_RECEIVER_ID
+GPS_RATE=4800
+FB_DEVICE=/dev/fb1
+```
+
+Replace `usb-YOUR_GPS_RECEIVER_ID` with the actual name listed on your Pi.
+Save the file and restart the service using the commands below to apply changes.
+
+For an upside-down LCD, add this line to `/etc/n4hai-geodetector.env`:
+
+```sh
+FLIP_SCREEN=true
+```
+
+This rotates the entire LCD image 180 degrees. Use `FLIP_SCREEN=false` (the
+default) for normal orientation. Direct Python runs can use
+`python3 displaygeo.py --port /dev/ttyUSB0 --flip-screen`.
+When first upgrading to this feature, rerun
+`sudo bash scripts/install-boot-service.sh` to rebuild the image and update the
+installed launcher, then restart the service. The installer preserves your
+existing environment file.
+
 By default, all KML files in this checkout's `./boundaries` directory are included
 in the image and loaded together. Keep that directory on the Pi before building;
 it is excluded from Git. Rebuild the image after updating its KML files.
@@ -150,6 +202,19 @@ if devices are unavailable or the container exits. A stopped GPS thread causes
 the LCD app to exit so the service can reconnect. SIGTERM saves settings during
 normal shutdown. Settings and GPS logs persist in the Docker volume
 `n4hai-geodetector-data`, under `/data/arGeoDetector` inside the container.
+The LCD shows `Entered at HH:MM` in GMT for the current county. County changes
+highlight the county abbreviation as black text in a large white box for
+60 seconds, then restore white text on black. Repeated GPS updates in the same
+county do not extend the highlight.
+County changes
+and each live app startup are appended to `county_entries.csv` in that same
+directory (locally, `~/.config/arGeoDetector/county_entries.csv`). Columns are
+`datetime_gmt,event,grid_square,county,county_abbr,state_abbr`. Startup records
+show Unknown and an unavailable grid until the GPS supplies a location; the
+first known county gets its own entry. GPS dropouts do not create county entries
+or reset the entry time. State abbreviations come from the supplied
+`Overlay<State>...kml` filenames; custom filenames leave the state blank.
+Entry timestamps use the Pi's UTC clock, so keep its system clock synchronized.
 The launcher uses host networking so the LCD shows the Pi's IP address, and
 passes only the configured GPS and framebuffer devices. The app runs as root
 inside the container to access those devices. CPU temperature shows `n/a` if
@@ -181,6 +246,42 @@ docker run --rm --init -p 8080:8080 n4hai-geodetector:local \
 ```
 
 Open `http://localhost:8080/` to see the mock LCD image.
+
+## County history in a web browser
+
+The LCD app also serves a county history table at `http://<pi-ip-address>:8081/`.
+For example, open `http://n4haimap3:8081/` from a browser on the same network,
+or use the Pi's IP shown on the LCD. The table shows all county entries recorded
+in the last 24 hours, newest first, with GMT date/time, grid square, county name,
+county abbreviation, and state abbreviation. It refreshes every 15 seconds.
+Startup records remain in the CSV but are excluded from the county-change table.
+History survives container restarts because it reads the persistent CSV log.
+
+To install this feature on an existing Pi setup:
+
+```sh
+cd ~/repos/n4haiGeoDetector
+git pull --ff-only
+sudo bash scripts/install-boot-service.sh
+sudo systemctl restart n4hai-geodetector.service
+```
+
+The browser server starts automatically with the LCD app. To change its port,
+add `HISTORY_PORT=8082` to `/etc/n4hai-geodetector.env` and restart the service,
+then browse to port 8082. Set `HISTORY_PORT=0` to disable it. The launcher uses
+host networking, so no Docker port mapping is needed. Anyone able to reach this
+port can read the location history; use it on your trusted local network.
+
+For a direct Python LCD run, use `--history-port 8081` (the default), or
+`--history-host 127.0.0.1` to restrict browser access to the Pi itself.
+To view an existing CSV without starting the LCD/GPS app:
+
+```sh
+.venv/bin/python county_history_web.py \
+  --log ~/.config/arGeoDetector/county_entries.csv --port 8081
+```
+
+Use an unused port if the LCD app's history server is already running.
 
 ## Browser LCD preview
 

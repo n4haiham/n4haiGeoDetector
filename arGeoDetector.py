@@ -41,6 +41,10 @@ except ImportError:
 
 VERSION = "0.3.3"
 
+STATE_ABBREVIATIONS = dict(zip(
+    "Alabama Alaska Arizona Arkansas California Colorado Connecticut Delaware Florida Georgia Hawaii Idaho Illinois Indiana Iowa Kansas Kentucky Louisiana Maine Maryland Massachusetts Michigan Minnesota Mississippi Missouri Montana Nebraska Nevada NewHampshire NewJersey NewMexico NewYork NorthCarolina NorthDakota Ohio Oklahoma Oregon Pennsylvania RhodeIsland SouthCarolina SouthDakota Tennessee Texas Utah Vermont Virginia Washington WestVirginia Wisconsin Wyoming".split(),
+    "AL AK AZ AR CA CO CT DE FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY".split()))
+
 
 
 class geoMsg(Enum):
@@ -54,9 +58,10 @@ class geoMsg(Enum):
     REPLAY= 8
 
 class geoBoundary():
-    def __init__(self, name, abbr):
+    def __init__(self, name, abbr, state_abbr=""):
         self.name = name
         self.abbr = abbr
+        self.state_abbr = state_abbr
         self.coords = []
         
     def addCoord(self, xy):
@@ -161,6 +166,8 @@ class arGeoDetector(Thread):
             self.msgCB((geoMsg.STAT, "No KML files found in [%s]" % filename))
 
     def _loadBoundaryFile(self, filename):
+        state_abbr = next((abbr for state, abbr in STATE_ABBREVIATIONS.items()
+                           if Path(filename).stem.startswith("Overlay" + state)), "")
         
         # Load Kml file into string so I can remove the 
         # xmlns="http://earth.google.com/kml/2.1" string
@@ -192,7 +199,8 @@ class arGeoDetector(Thread):
                     abbr = m.group(2)
                     self.log ("Loading %s(%s)" % (abbr, name))
                     # Create new boundary object
-                    bnd = geoBoundary(name, abbr)
+                    boundary_state = "DC" if state_abbr == "MD" and abbr == "DC" else state_abbr
+                    bnd = geoBoundary(name, abbr, boundary_state)
                     
                     # Add coordinates to boundary object
                     # Form: '-75.87614423,37.55153989'
@@ -424,10 +432,10 @@ class arGeoDetector(Thread):
                                     changed += 1
                                 
                                 qth = self.findCAIC(xy)
-                                self.msgCB((geoMsg.CNTY,(qth.name, qth.abbr)))
-                                if self.last_qth != qth.abbr:
+                                self.msgCB((geoMsg.CNTY,(qth.name, qth.abbr, qth.state_abbr)))
+                                if self.last_qth != (qth.state_abbr, qth.abbr, qth.name):
                                     # New county/city detected
-                                    self.last_qth = qth.abbr
+                                    self.last_qth = (qth.state_abbr, qth.abbr, qth.name)
                                     changed += 2
                                 
                                 if changed: # or (self.gps_datetime - self.last_datetime) >= datetime.timedelta(seconds=30):
@@ -489,7 +497,7 @@ class arGeoDetector(Thread):
                     grid = self.calcGridSquare(xy)
                     qth = self.findCAIC(xy)
                     self.msgCB((geoMsg.GRID,grid))
-                    self.msgCB((geoMsg.CNTY,(qth.name, qth.abbr)))
+                    self.msgCB((geoMsg.CNTY,(qth.name, qth.abbr, qth.state_abbr)))
                     self.log("%s %s(%s)" % (grid, qth.name, qth.abbr))
         self.log("Replay complete")
         self.msgCB((geoMsg.REPLAY,0))
