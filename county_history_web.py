@@ -4,9 +4,20 @@ import argparse
 import csv
 import datetime
 import html
+from io import StringIO
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import threading
 from urllib.parse import urlsplit
+
+CSV_FIELDS = ("datetime_gmt", "grid_square", "county", "county_abbr", "state_abbr")
+
+
+def render_csv(entries):
+    output = StringIO(newline="")
+    writer = csv.DictWriter(output, fieldnames=CSV_FIELDS, extrasaction="ignore")
+    writer.writeheader()
+    writer.writerows(entries)
+    return output.getvalue()
 
 
 def recent_entries(log_path, now=None):
@@ -33,7 +44,7 @@ def recent_entries(log_path, now=None):
 
 
 def render_page(entries):
-    fields = ("datetime_gmt", "grid_square", "county", "county_abbr", "state_abbr")
+    fields = CSV_FIELDS
     rows = "".join("<tr>" + "".join(
         f"<td>{html.escape(row.get(field) or '')}</td>" for field in fields
     ) + "</tr>" for row in entries)
@@ -50,8 +61,11 @@ body {{font-family:system-ui,sans-serif;margin:24px;background:#151719;color:#ee
 th,td {{text-align:left;padding:12px;border-bottom:1px solid #444}}
 th {{background:#292d31}} tbody tr:nth-child(even) {{background:#202427}}
 p {{color:#bfc6ce}}
+.download {{display:inline-block;padding:10px 16px;margin-bottom:18px;
+background:#eee;color:#151719;border-radius:6px;text-decoration:none;font-weight:600}}
 </style></head><body><h1>County changes</h1>
 <p>Last 24 hours · newest first · times in GMT · refreshes every 15 seconds</p>
+<a class="download" href="/counties.csv" download>Download CSV</a>
 <div class="table"><table><thead><tr><th scope="col">Date/time (GMT)</th>
 <th scope="col">Grid square</th><th scope="col">County</th>
 <th scope="col">County abbreviation</th><th scope="col">State</th></tr></thead>
@@ -63,7 +77,8 @@ def make_server(log_path, host, port, lock=None):
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
-            if urlsplit(self.path).path not in ("/", "/counties"):
+            path = urlsplit(self.path).path
+            if path not in ("/", "/counties", "/counties.csv"):
                 self.send_error(404)
                 return
             try:
@@ -72,9 +87,13 @@ def make_server(log_path, host, port, lock=None):
             except OSError:
                 self.send_error(500, "Unable to read county history")
                 return
-            body = render_page(entries).encode("utf-8")
+            download = path == "/counties.csv"
+            body = (render_csv(entries) if download else render_page(entries)).encode("utf-8")
             self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Type", "text/csv; charset=utf-8" if download
+                             else "text/html; charset=utf-8")
+            if download:
+                self.send_header("Content-Disposition", 'attachment; filename="county_changes_24h.csv"')
             self.send_header("Cache-Control", "no-store")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
