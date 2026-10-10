@@ -21,6 +21,7 @@ from optparse import OptionParser
 from arGeoDetector import geoBase, geoMsg
 from county_history_web import make_server
 from pi_status import StatusCycle
+from hdmi_mirror import HDMIMirror
 
 WIDTH = 480
 HEIGHT = 320
@@ -115,6 +116,9 @@ class GeoDisplay(geoBase):
     def get_county_grid(self):
         with self.lock:
             return self.county, self.county_abbr, self.grid
+
+    def get_known_counties(self):
+        return len(self.geoDet.boundaries)
 
     def get_gps_status(self, show_age=False):
         with self.lock:
@@ -295,6 +299,8 @@ def main():
                     help="Rotate the LCD image 180 degrees")
     parser.add_option("--history-host", default="0.0.0.0",
                     help="County history web interface (default: 0.0.0.0)")
+    parser.add_option("--hdmi-device", default=None,
+                    help="Mirror to this HDMI framebuffer (disabled by default)")
     parser.add_option("--history-port", type="int", default=8081,
                     help="County history HTTP port (default: 8081; 0 disables)")
     opts, _args = parser.parse_args()
@@ -302,6 +308,7 @@ def main():
 
     geo_display = GeoDisplay(opts)
     history_server = None
+    hdmi = None
 
     def sigint(_sig, _frame):
         geo_display.stop_detector()
@@ -311,6 +318,9 @@ def main():
     signal.signal(signal.SIGTERM, sigint)
 
     try:
+        if opts.hdmi_device:
+            hdmi = HDMIMirror(opts.hdmi_device)
+            print(f"HDMI mirroring enabled: {opts.hdmi_device}", flush=True)
         if opts.history_port:
             history_server = make_server(geo_display.county_log, opts.history_host,
                                          opts.history_port, geo_display.lock)
@@ -323,8 +333,12 @@ def main():
                 raise RuntimeError("GPS detector stopped; restarting the container is required")
             img = generateLCDImage(geo_display)
             write_fb(img, flip_screen=opts.flip_screen)
+            if hdmi:
+                hdmi.write(img)
             time.sleep(0.2)
     finally:
+        if hdmi:
+            hdmi.close()
         if history_server:
             history_server.shutdown()
             history_server.server_close()

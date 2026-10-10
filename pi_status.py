@@ -68,7 +68,10 @@ class StatusCycle:
 
     def text(self, display):
         now = time.monotonic()
-        index = int((now - self.started) // 5) % 9
+        index = int((now - self.started) // 5) % 10
+        if index == 9:
+            count = display.get_known_counties() if hasattr(display, 'get_known_counties') else 'n/a'
+            return f'Known Counties: {count}'
         if index in (2, 3):
             return display.get_gps_status(index == 3) if hasattr(display, 'get_gps_status') else (
                 'GPS update: n/a' if index == 3 else 'GPS fix/sats: n/a')

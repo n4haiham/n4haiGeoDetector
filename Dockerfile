@@ -11,7 +11,7 @@ RUN apt-get update \
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-COPY arGeoDetector.py displaygeo.py displaygeo_web.py county_history_web.py pi_status.py ./
+COPY arGeoDetector.py displaygeo.py displaygeo_web.py county_history_web.py pi_status.py hdmi_mirror.py ./
 COPY boundaries/ ./boundaries/
 
 STOPSIGNAL SIGTERM

@@ -6,5 +6,6 @@
 !displaygeo_web.py
 !county_history_web.py
 !pi_status.py
+!hdmi_mirror.py
 !boundaries/
 !boundaries/*.kml

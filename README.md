@@ -1,5 +1,10 @@
 # n4haiGeoDetector
+
+![LCD showing FAU, Fauquier, grid FM18aw, entry time, elapsed time, and GPS status](docs/images/lcd-sample.png)
+
 Provides city, county, state, and gridsquare location information on a Raspberry Pi equipped with a 3.5" LCD screen.  Other display options to be developed in the future.
+
+The image above shows sample location and GPS status in the app's 480x320 LCD layout.
 
 ## Test the LCD directly on the Pi
 
@@ -141,6 +146,8 @@ The installer preserves this file on subsequent runs.
 | `GPS_RATE` | `4800` | GPS baud rate; must match your receiver. |
 | `FB_DEVICE` | `/dev/fb0` | Host LCD framebuffer, often `/dev/fb0` or `/dev/fb1`. |
 | `FLIP_SCREEN` | `false` | Set `true` to rotate the entire LCD image 180 degrees. |
+| `HDMI_MIRROR` | `false` | Set `true` to show the live LCD content on a TV as well. |
+| `HDMI_DEVICE` | `/dev/fb1` | Separate host HDMI framebuffer; must differ from `FB_DEVICE`. |
 | `HISTORY_PORT` | `8081` | County history HTTP port; `0` disables the server. |
 | `BOUNDARY_FILE` | empty | Uses all KML files bundled from `./boundaries`; optionally set an absolute host path to a KML file or directory. |
 
@@ -153,6 +160,8 @@ GPS_DEVICE=/dev/ttyUSB0
 GPS_RATE=4800
 FB_DEVICE=/dev/fb0
 FLIP_SCREEN=false
+HDMI_MIRROR=false
+HDMI_DEVICE=/dev/fb1
 HISTORY_PORT=8081
 BOUNDARY_FILE=
 ```
@@ -166,6 +175,8 @@ GPS_DEVICE=/dev/ttyACM0
 GPS_RATE=9600
 FB_DEVICE=/dev/fb1
 FLIP_SCREEN=true
+HDMI_MIRROR=false
+HDMI_DEVICE=/dev/fb0
 HISTORY_PORT=8081
 BOUNDARY_FILE=
 ```
@@ -187,6 +198,8 @@ GPS_DEVICE=/dev/serial/by-id/usb-YOUR_GPS_RECEIVER_ID
 GPS_RATE=4800
 FB_DEVICE=/dev/fb1
 FLIP_SCREEN=false
+HDMI_MIRROR=false
+HDMI_DEVICE=/dev/fb0
 HISTORY_PORT=8081
 BOUNDARY_FILE=
 ```
@@ -241,7 +254,9 @@ inside the container to access those devices.
 The bottom LCD line cycles every five seconds through IP address, CPU
 temperature, GPS fix/satellite count, seconds since the last GPS GGA update,
 undervoltage status, Pi uptime, free disk space, Wi-Fi signal strength, and
-current GMT date/time.
+current GMT date/time, and `Known Counties: <count>`. The count is the total
+number of boundary entities loaded across the KML files (including independent
+cities and any duplicate entities present in the files).
 GPS data older than 15 seconds is marked stale. A no-fix GGA record updates
 the GPS status but does not update the location. Missing sensors or unavailable
 Wi-Fi readings show `n/a`. Undervoltage reports the current kernel sensor alarm,
@@ -277,6 +292,58 @@ docker run --rm --init -p 8080:8080 n4hai-geodetector:local \
 ```
 
 Open `http://localhost:8080/` to see the mock LCD image.
+
+## Demo on an HDMI TV
+
+HDMI mirroring is off by default. Connect the TV before starting the app and
+identify its framebuffer on the Pi:
+
+```sh
+ls /dev/fb*
+cat /sys/class/graphics/fb*/name
+sudo apt install fbset
+fbset -fb /dev/fb0 -i
+fbset -fb /dev/fb1 -i
+```
+
+Device numbering depends on your drivers. If the LCD uses `/dev/fb1` and HDMI
+uses `/dev/fb0`, update `/etc/n4hai-geodetector.env` as follows:
+
+```sh
+IMAGE=n4hai-geodetector:local
+GPS_DEVICE=/dev/ttyUSB0
+GPS_RATE=4800
+FB_DEVICE=/dev/fb1
+FLIP_SCREEN=false
+HDMI_MIRROR=true
+HDMI_DEVICE=/dev/fb0
+HISTORY_PORT=8081
+BOUNDARY_FILE=
+```
+
+Reinstall after pulling this feature to update the image and launcher, then start:
+
+```sh
+sudo bash scripts/install-boot-service.sh
+sudo systemctl restart n4hai-geodetector.service
+```
+
+The TV shows the same live location, highlights, timers, and rotating stats,
+scaled to fit with black margins preserving the LCD's aspect ratio. The TV
+stays upright even if `FLIP_SCREEN=true` compensates for an upside-down LCD.
+Set `HDMI_MIRROR=false` and restart the service to turn mirroring off.
+
+HDMI must expose a separate, active Linux framebuffer with packed truecolor
+16-, 24-, or 32-bit pixels. The mirror reads resolution, color layout, and row
+stride using the [Linux framebuffer API](https://docs.kernel.org/fb/api.html).
+It does not create an HDMI framebuffer or configure the TV's video mode.
+If no separate HDMI `/dev/fb*` exists, your display-driver setup must provide
+one first. Use a console session for the demo: a desktop compositor or console
+output writing to the same framebuffer can overwrite the image. Unsupported
+HDMI configurations are reported in the service log.
+
+For a direct Python run, the equivalent option is
+`--hdmi-device /dev/fb0` (select your TV's framebuffer).
 
 ## Flip the LCD screen
 
@@ -334,6 +401,10 @@ normal orientation; direct Python runs do not read the service's environment
 file. After exiting with Ctrl+C, restart the service if you previously stopped it.
 
 ## County history in a web browser
+
+Sample county log page using demonstration data:
+
+![County changes table showing sample entries newest first and a Download CSV button](docs/images/county-history-sample.png)
 
 The LCD app also serves a county history table at `http://<pi-ip-address>:8081/`.
 For example, open `http://n4haimap3:8081/` from a browser on the same network,

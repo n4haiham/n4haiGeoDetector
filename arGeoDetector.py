@@ -165,6 +165,7 @@ class arGeoDetector(Thread):
             self._loadBoundaryFile(boundary_file)
         if not files:
             self.msgCB((geoMsg.STAT, "No KML files found in [%s]" % filename))
+        self.log("Known Counties: %d" % len(self.boundaries))
 
     def _loadBoundaryFile(self, filename):
         state_abbr = next((abbr for state, abbr in STATE_ABBREVIATIONS.items()

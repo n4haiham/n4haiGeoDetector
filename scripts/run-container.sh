@@ -14,6 +14,8 @@ source "$config"
 : "${FB_DEVICE:=/dev/fb0}"
 : "${FLIP_SCREEN:=false}"
 : "${HISTORY_PORT:=8081}"
+: "${HDMI_MIRROR:=false}"
+: "${HDMI_DEVICE:=/dev/fb1}"
 : "${BOUNDARY_FILE:=}"
 
 for device in "$GPS_DEVICE" "$FB_DEVICE"; do
@@ -32,6 +34,18 @@ docker_args=(run --rm --init --name n4hai-geodetector
     --mount type=bind,source=/proc/uptime,target=/host-uptime,readonly
     --log-opt max-size=10m --log-opt max-file=3)
 app_args=(python displaygeo.py --port /dev/gps --rate "$GPS_RATE" --history-port "$HISTORY_PORT")
+case "${HDMI_MIRROR,,}" in
+    true|1|yes)
+        if [[ ! -c "$HDMI_DEVICE" || "$HDMI_DEVICE" -ef "$FB_DEVICE" ]]; then
+            echo "HDMI_DEVICE must be a separate HDMI character device from FB_DEVICE" >&2
+            exit 1
+        fi
+        docker_args+=(--device "$HDMI_DEVICE:/dev/hdmi-fb")
+        app_args+=(--hdmi-device /dev/hdmi-fb)
+        ;;
+    false|0|no) ;;
+    *) echo "HDMI_MIRROR must be true or false" >&2; exit 1 ;;
+esac
 case "${FLIP_SCREEN,,}" in
     true|1|yes) app_args+=(--flip-screen) ;;
     false|0|no) ;;
