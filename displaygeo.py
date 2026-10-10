@@ -129,7 +129,7 @@ def cmd(c):
         return "n/a"
 
 
-def write_fb(img):
+def write_fb(img, device="/dev/fb0"):
     img = img.convert("RGB")
     pixels = img.load()
 
@@ -142,7 +142,7 @@ def write_fb(img):
             buf.append((rgb565 >> 8) & 0xFF)
             buf.append(rgb565 & 0xFF)
 
-    with open("/dev/fb0", "wb") as fb:
+    with open(device, "wb") as fb:
         fb.write(buf)
 
 

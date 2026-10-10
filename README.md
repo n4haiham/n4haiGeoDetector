@@ -1,6 +1,112 @@
 # n4haiGeoDetector
 Provides city, county, state, and gridsquare location information on a Raspberry Pi equipped with a 3.5" LCD screen.  Other display options to be developed in the future.
 
+## Test the LCD directly on the Pi
+
+The LCD driver must already expose a 480x320 RGB565 framebuffer compatible with
+`displaygeo.py`. This test runs directly on Raspberry Pi OS without Docker, GPS,
+or boundary files. It shows **sample** county and grid information with the Pi's
+current UTC time, IP address, and CPU temperature for five seconds, then color
+bars and a grayscale ramp for five seconds. It clears the screen and exits.
+
+Install Git and Python, then clone this repository from GitHub:
+
+```sh
+sudo apt update
+sudo apt install -y git python3 python3-venv fonts-dejavu-core
+git clone https://github.com/n4haiham/n4haiGeoDetector.git
+cd n4haiGeoDetector
+```
+
+For an existing checkout, run `git pull --ff-only` from its directory to fetch
+the latest code. Create a virtual environment and install the dependencies:
+
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+```
+
+If the project's Docker boot service is running, stop it first so it does not
+overwrite the test screen:
+
+```sh
+sudo systemctl stop n4hai-geodetector.service
+```
+
+Run the test with the virtual environment's Python:
+
+```sh
+sudo .venv/bin/python test_lcd.py
+```
+
+If the LCD is on `/dev/fb1`, or you want different sample values:
+
+```sh
+sudo .venv/bin/python test_lcd.py --framebuffer /dev/fb1 \
+  --county Loudoun --abbr LDN --grid FM18kv
+```
+
+The framebuffer path must match your LCD driver. The test uses the same RGB565
+byte order as the main app. After testing, restart the boot service if you
+previously stopped it:
+
+```sh
+sudo systemctl start n4hai-geodetector.service
+```
+
+## Install Docker on the Raspberry Pi
+
+These steps are for **64-bit Raspberry Pi OS Bookworm or Trixie** and follow
+[Docker's official Debian installation guide](https://docs.docker.com/engine/install/debian/).
+Check your OS and package architecture first:
+
+```sh
+cat /etc/os-release
+dpkg --print-architecture
+```
+
+The architecture should be `arm64`. For `armhf`, consult
+[Docker's 32-bit Raspberry Pi OS guidance](https://docs.docker.com/engine/install/raspberry-pi-os/)
+instead; the Raspbian packages stop at Docker Engine v28. Older ARMv6 models
+(Pi 1 and original Pi Zero/Zero W) are unsupported by official Docker packages.
+
+On a fresh Pi, install prerequisites and add Docker's signing key:
+
+```sh
+sudo apt update
+sudo apt install -y ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+```
+
+If this Pi already has distribution packages such as `docker.io`, `podman-docker`,
+`containerd`, or `runc`, follow the official guide's conflicting-package removal
+steps before continuing.
+
+Add the repository, then install Docker Engine and its CLI plugins:
+
+```sh
+sudo tee /etc/apt/sources.list.d/docker.sources > /dev/null <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/debian
+Suites: $(. /etc/os-release && echo "$VERSION_CODENAME")
+Components: stable
+Architectures: $(dpkg --print-architecture)
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo systemctl enable --now docker.service
+sudo docker run --rm hello-world
+```
+
+The last command should print a successful installation message. Use `sudo` for
+Docker commands on the Pi; the project's boot service runs as root and does not
+require adding your user to the `docker` group. Continue with the project setup
+below after this check passes.
+
 ## Docker and Raspberry Pi boot startup
 
 Use Raspberry Pi OS with systemd and Docker Engine installed. A 64-bit OS is
