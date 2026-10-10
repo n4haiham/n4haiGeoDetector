@@ -232,8 +232,19 @@ or reset the entry time. State abbreviations come from the supplied
 Entry timestamps use the Pi's UTC clock, so keep its system clock synchronized.
 The launcher uses host networking so the LCD shows the Pi's IP address, and
 passes only the configured GPS and framebuffer devices. The app runs as root
-inside the container to access those devices. CPU temperature shows `n/a` if
-the host thermal sensor is unavailable inside Docker.
+inside the container to access those devices.
+
+The bottom LCD line cycles every five seconds through IP address, CPU
+temperature, GPS fix/satellite count, seconds since the last GPS GGA update,
+undervoltage status, Pi uptime, free disk space, and Wi-Fi signal strength.
+GPS data older than 15 seconds is marked stale. A no-fix GGA record updates
+the GPS status but does not update the location. Missing sensors or unavailable
+Wi-Fi readings show `n/a`. Undervoltage reports the current kernel sensor alarm,
+not a history of past power events. The container reads host sysfs and uptime
+through read-only mounts; disk space is for the filesystem holding `/data`.
+For direct Python runs, install `iw` with `sudo apt install iw` for Wi-Fi signal
+queries. After upgrading, rerun the boot installer to update both the image and
+launcher, then restart the service.
 
 After changing code, rebuild and restart:
 
@@ -283,6 +294,28 @@ sudo systemctl restart n4hai-geodetector.service
 The installer preserves your existing environment file. Once the feature is
 installed, changing `FLIP_SCREEN` only requires a service restart.
 
+If changing the setting has no effect, check that the name is uppercase
+`FLIP_SCREEN`, that you edited `/etc/n4hai-geodetector.env`, and that you updated
+the installed launcher with the installer above. `git pull` alone does not
+update `/usr/local/bin/n4hai-geodetector-run` or the Docker image. Confirm the
+applied configuration and orientation in the service log:
+
+```sh
+sudo journalctl -u n4hai-geodetector.service -n 50 --no-pager
+```
+
+With `FLIP_SCREEN=true`, expect `FLIP_SCREEN=true` in the launcher message and
+`LCD orientation: rotated 180 degrees` from the app. The standalone LCD test
+does not read the service environment file; test its rotation explicitly:
+
+```sh
+sudo systemctl stop n4hai-geodetector.service
+sudo .venv/bin/python test_lcd.py --framebuffer /dev/fb0 --flip-screen
+sudo systemctl start n4hai-geodetector.service
+```
+
+Use your LCD's framebuffer path. Omit `--flip-screen` to compare normal orientation.
+
 For a direct Python run, stop the container service first if it is running,
 then pass `--flip-screen`:
 
@@ -302,7 +335,8 @@ For example, open `http://n4haimap3:8081/` from a browser on the same network,
 or use the Pi's IP shown on the LCD. The table shows all county entries recorded
 in the last 24 hours, newest first, with GMT date/time, grid square, county name,
 county abbreviation, and state abbreviation. It refreshes every 15 seconds.
-Click **Download CSV** to export the last 24 hours in newest-first order, with
+Click **Download CSV** to export the last 24 hours in chronological order
+(oldest first), with
 headers `datetime_gmt,grid_square,county,county_abbr,state_abbr`. The file is
 named `county_changes_24h.csv`; an empty history still downloads the headers.
 Startup records remain in the CSV but are excluded from the county-change table.

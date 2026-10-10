@@ -28,6 +28,8 @@ docker_args=(run --rm --init --name n4hai-geodetector
     --device "$GPS_DEVICE:/dev/gps"
     --device "$FB_DEVICE:/dev/fb0"
     --mount type=volume,source=n4hai-geodetector-data,target=/data
+    --mount type=bind,source=/sys,target=/host-sys,readonly
+    --mount type=bind,source=/proc/uptime,target=/host-uptime,readonly
     --log-opt max-size=10m --log-opt max-file=3)
 app_args=(python displaygeo.py --port /dev/gps --rate "$GPS_RATE" --history-port "$HISTORY_PORT")
 case "${FLIP_SCREEN,,}" in
@@ -35,6 +37,7 @@ case "${FLIP_SCREEN,,}" in
     false|0|no) ;;
     *) echo "FLIP_SCREEN must be true or false" >&2; exit 1 ;;
 esac
+echo "LCD configuration: FB_DEVICE=$FB_DEVICE FLIP_SCREEN=$FLIP_SCREEN IMAGE=$IMAGE"
 if [[ -n "$BOUNDARY_FILE" ]]; then
     if [[ "$BOUNDARY_FILE" != /* || ( ! -f "$BOUNDARY_FILE" && ! -d "$BOUNDARY_FILE" ) ]]; then
         echo "BOUNDARY_FILE must be an existing absolute file or directory path" >&2

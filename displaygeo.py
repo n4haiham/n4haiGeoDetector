@@ -20,6 +20,7 @@ from optparse import OptionParser
 
 from arGeoDetector import geoBase, geoMsg
 from county_history_web import make_server
+from pi_status import StatusCycle
 
 WIDTH = 480
 HEIGHT = 320
@@ -58,6 +59,7 @@ def load_font(font_path, size):
 font_med = load_font(FONT_REGULAR, 32)
 
 font_small = load_font(FONT_REGULAR, 24)
+status_cycle = StatusCycle()
 
 
 class GeoDisplay(geoBase):
@@ -74,6 +76,9 @@ class GeoDisplay(geoBase):
         self.county_highlight_until = 0.0
         self.grid_highlight_until = 0.0
         self.last_grid = None
+        self.gps_fix = None
+        self.gps_satellites = None
+        self.gps_update_at = None
         super().__init__(opts, self.geoCB)
         self.county_log = os.path.join(self.appDirs.user_config_dir, "county_entries.csv")
         self.log_county_event("startup")
@@ -101,10 +106,24 @@ class GeoDisplay(geoBase):
                     self.log_county_event("county_entered", self.entered_at)
             elif msg_type == geoMsg.STAT:
                 self.status = value
+            elif msg_type == geoMsg.GPS_STATUS:
+                self.gps_fix, self.gps_satellites = value
+                self.gps_update_at = time.monotonic()
 
     def get_county_grid(self):
         with self.lock:
             return self.county, self.county_abbr, self.grid
+
+    def get_gps_status(self, show_age=False):
+        with self.lock:
+            if self.gps_update_at is None:
+                return 'GPS update: waiting' if show_age else 'GPS fix/sats: waiting'
+            age = max(0, int(time.monotonic() - self.gps_update_at))
+            if show_age:
+                return f'GPS update: {age}s ago'
+            fixes = {0: 'No fix', 1: 'GPS', 2: 'DGPS', 4: 'RTK', 5: 'Float RTK', 6: 'Estimated'}
+            label = fixes.get(self.gps_fix, f'Quality {self.gps_fix}')
+            return f"GPS: {label} / {self.gps_satellites} sats" + (' (stale)' if age > 15 else '')
 
     def get_entered_at(self):
         with self.lock:
@@ -213,13 +232,6 @@ def generateLCDImage(geo_display):
 
     # Get system info
     utc_datetime = cmd("date -u '+%d %b %Y %H:%M:%S'")
-    ip_addr = cmd("hostname -I | awk '{print $1}'")
-    raw_temp = cmd("cat /sys/class/thermal/thermal_zone0/temp")
-
-    try:
-        cpu_temp = f"{int(raw_temp)/1000:.1f} C"
-    except:
-        cpu_temp = "n/a"
 
     abbreviation_font = fit_text(draw, county_abbr, FONT_BOLD, 72, WIDTH - 40)
     county_font = fit_text(draw, county, FONT_REGULAR, 48, WIDTH - 40)
@@ -250,8 +262,11 @@ def generateLCDImage(geo_display):
     draw.text(((WIDTH - (bbox[2] - bbox[0])) // 2, 200), entered_text,
               fill="white", font=font_small)
     draw.text((80, 235), utc_datetime, fill="white", font=font_small)
-    draw.text((20, 280), f"IP: {ip_addr}", fill="white", font=font_small)
-    draw.text((320, 280), cpu_temp, fill="white", font=font_small)
+    status_text = status_cycle.text(geo_display)
+    status_font = fit_text(draw, status_text, FONT_REGULAR, 24, WIDTH - 40)
+    left, upper, right, _ = draw.textbbox((0, 0), status_text, font=status_font)
+    draw.text(((WIDTH - (right - left)) // 2 - left, 280 - upper),
+              status_text, fill="white", font=status_font)
     return img
 
 def main():
@@ -271,6 +286,7 @@ def main():
     parser.add_option("--history-port", type="int", default=8081,
                     help="County history HTTP port (default: 8081; 0 disables)")
     opts, _args = parser.parse_args()
+    print(f"LCD orientation: {'rotated 180 degrees' if opts.flip_screen else 'normal'}", flush=True)
 
     geo_display = GeoDisplay(opts)
     history_server = None

@@ -5,13 +5,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     XDG_CONFIG_HOME=/data
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends fonts-dejavu-core hostname \
+    && apt-get install -y --no-install-recommends fonts-dejavu-core hostname iw \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-COPY arGeoDetector.py displaygeo.py displaygeo_web.py county_history_web.py ./
+COPY arGeoDetector.py displaygeo.py displaygeo_web.py county_history_web.py pi_status.py ./
 COPY boundaries/ ./boundaries/
 
 STOPSIGNAL SIGTERM

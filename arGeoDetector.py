@@ -56,6 +56,7 @@ class geoMsg(Enum):
     NOTIF = 6
     POPUP = 7
     REPLAY= 8
+    GPS_STATUS = 9
 
 class geoBoundary():
     def __init__(self, name, abbr, state_abbr=""):
@@ -533,6 +534,11 @@ class arGeoDetector(Thread):
     def getNmeaGgaCoords(self, nmea_str):
         # Form: $GPGGA,002852.00,3835.14680,N,07745.58318,W,1,03,5.60,127.9,M,-34.5,M,,*61
         nmea_fields = nmea_str.split(',')
+        fix = int(nmea_fields[6] or 0)
+        satellites = int(nmea_fields[7] or 0)
+        self.msgCB((geoMsg.GPS_STATUS, (fix, satellites)))
+        if fix == 0:
+            raise ValueError("GGA record has no GPS fix")
         if not nmea_fields[2]:
             raise ValueError("GGA record does not contain valid coordinates")
              #           return (0,0)

@@ -16,7 +16,7 @@ def render_csv(entries):
     output = StringIO(newline="")
     writer = csv.DictWriter(output, fieldnames=CSV_FIELDS, extrasaction="ignore")
     writer.writeheader()
-    writer.writerows(entries)
+    writer.writerows(sorted(entries, key=lambda row: row.get("datetime_gmt") or ""))
     return output.getvalue()
 
 

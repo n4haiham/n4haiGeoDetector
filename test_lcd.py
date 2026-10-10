@@ -42,18 +42,20 @@ def main():
     parser.add_argument("--county", default="Fauquier", help="Sample county/city")
     parser.add_argument("--abbr", default="FAU", help="Sample county abbreviation")
     parser.add_argument("--grid", default="FM18aw", help="Sample grid square")
+    parser.add_argument("--flip-screen", action="store_true", help="Rotate the LCD image 180 degrees")
     args = parser.parse_args()
 
     try:
         location = SampleLocation(args.county, args.abbr, args.grid)
         for cycle in range(1, 11):
             print(f"Cycle {cycle}/10: showing sample location for 5 seconds.", flush=True)
-            write_fb(generateLCDImage(location), args.framebuffer)
+            write_fb(generateLCDImage(location), args.framebuffer, flip_screen=args.flip_screen)
             time.sleep(5)
             print(f"Cycle {cycle}/10: showing color bars and grayscale ramp for 5 seconds.", flush=True)
-            write_fb(color_test_image(), args.framebuffer)
+            write_fb(color_test_image(), args.framebuffer, flip_screen=args.flip_screen)
             time.sleep(5)
-        write_fb(Image.new("RGB", (WIDTH, HEIGHT), "black"), args.framebuffer)
+        write_fb(Image.new("RGB", (WIDTH, HEIGHT), "black"), args.framebuffer,
+                 flip_screen=args.flip_screen)
         print("LCD test complete; screen cleared.")
     except OSError as error:
         print(f"LCD test failed: {error}. Check the framebuffer path and run with sudo.", file=sys.stderr)
