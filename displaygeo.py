@@ -139,8 +139,8 @@ def write_fb(img, device="/dev/fb0"):
             r, g, b = pixels[x, y]
             rgb565 = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
 
-            buf.append((rgb565 >> 8) & 0xFF)
-            buf.append(rgb565 & 0xFF)
+            # Framebuffer pixels are native-endian words (little-endian on Pi).
+            buf.extend(rgb565.to_bytes(2, byteorder=sys.byteorder))
 
     with open(device, "wb") as fb:
         fb.write(buf)

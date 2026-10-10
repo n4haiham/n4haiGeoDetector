@@ -47,8 +47,14 @@ sudo .venv/bin/python test_lcd.py --framebuffer /dev/fb1 \
   --county Loudoun --abbr LDN --grid FM18kv
 ```
 
-The framebuffer path must match your LCD driver. The test uses the same RGB565
-byte order as the main app. After testing, restart the boot service if you
+The framebuffer path must match your LCD driver. The test and main app write
+RGB565 pixels in native byte order (little-endian on the Pi). If colors still
+do not match the labels, check the driver's pixel format with
+`fbset -fb /dev/fb0 -i` (install with `sudo apt install fbset`, and substitute
+your LCD device). The writer expects 16-bit RGB565: red offset 11, green offset
+5, and blue offset 0. Framebuffer color layouts are driver-specific; see the
+[Linux framebuffer API](https://docs.kernel.org/fb/api.html).
+After testing, restart the boot service if you
 previously stopped it:
 
 ```sh
