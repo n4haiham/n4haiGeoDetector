@@ -204,7 +204,7 @@ def cmd(c):
         return "n/a"
 
 
-def write_fb(img, device="/dev/fb0", flip_screen=False):
+def write_fb(img, device="/dev/fb1", flip_screen=False):
     if flip_screen:
         img = img.transpose(Image.Transpose.ROTATE_180)
     img = img.convert("RGB")

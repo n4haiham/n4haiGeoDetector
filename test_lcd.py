@@ -38,7 +38,7 @@ def color_test_image():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--framebuffer", default="/dev/fb0", help="LCD device (default: /dev/fb0)")
+    parser.add_argument("--framebuffer", default="/dev/fb1", help="LCD device (default: /dev/fb1)")
     parser.add_argument("--county", default="Fauquier", help="Sample county/city")
     parser.add_argument("--abbr", default="FAU", help="Sample county abbreviation")
     parser.add_argument("--grid", default="FM18aw", help="Sample grid square")

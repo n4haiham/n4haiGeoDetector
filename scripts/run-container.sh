@@ -11,11 +11,11 @@ source "$config"
 : "${IMAGE:=n4hai-geodetector:local}"
 : "${GPS_DEVICE:=/dev/ttyUSB0}"
 : "${GPS_RATE:=4800}"
-: "${FB_DEVICE:=/dev/fb0}"
+: "${FB_DEVICE:=/dev/fb1}"
 : "${FLIP_SCREEN:=false}"
 : "${HISTORY_PORT:=8081}"
 : "${HDMI_MIRROR:=false}"
-: "${HDMI_DEVICE:=/dev/fb1}"
+: "${HDMI_DEVICE:=/dev/fb0}"
 : "${BOUNDARY_FILE:=}"
 
 for device in "$GPS_DEVICE" "$FB_DEVICE"; do
@@ -28,7 +28,7 @@ done
 docker_args=(run --rm --init --name n4hai-geodetector
     --network host
     --device "$GPS_DEVICE:/dev/gps"
-    --device "$FB_DEVICE:/dev/fb0"
+    --device "$FB_DEVICE:/dev/fb1"
     --mount type=volume,source=n4hai-geodetector-data,target=/data
     --mount type=bind,source=/sys,target=/host-sys,readonly
     --mount type=bind,source=/proc/uptime,target=/host-uptime,readonly

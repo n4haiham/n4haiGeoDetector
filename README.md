@@ -45,17 +45,18 @@ Run the test with the virtual environment's Python:
 sudo .venv/bin/python test_lcd.py
 ```
 
-If the LCD is on `/dev/fb1`, or you want different sample values:
+The default LCD framebuffer is `/dev/fb1`. If your LCD is on `/dev/fb0`,
+or you want different sample values:
 
 ```sh
-sudo .venv/bin/python test_lcd.py --framebuffer /dev/fb1 \
+sudo .venv/bin/python test_lcd.py --framebuffer /dev/fb0 \
   --county Loudoun --abbr LDN --grid FM18kv
 ```
 
 The framebuffer path must match your LCD driver. The test and main app write
 RGB565 pixels in native byte order (little-endian on the Pi). If colors still
 do not match the labels, check the driver's pixel format with
-`fbset -fb /dev/fb0 -i` (install with `sudo apt install fbset`, and substitute
+`fbset -fb /dev/fb1 -i` (install with `sudo apt install fbset`, and substitute
 your LCD device). The writer expects 16-bit RGB565: red offset 11, green offset
 5, and blue offset 0. Framebuffer color layouts are driver-specific; see the
 [Linux framebuffer API](https://docs.kernel.org/fb/api.html).
@@ -144,24 +145,24 @@ The installer preserves this file on subsequent runs.
 | `IMAGE` | `n4hai-geodetector:local` | Docker image to launch. |
 | `GPS_DEVICE` | `/dev/ttyUSB0` | Host GPS serial device; a `/dev/serial/by-id/...` path avoids USB numbering changes. |
 | `GPS_RATE` | `4800` | GPS baud rate; must match your receiver. |
-| `FB_DEVICE` | `/dev/fb0` | Host LCD framebuffer, often `/dev/fb0` or `/dev/fb1`. |
+| `FB_DEVICE` | `/dev/fb1` | Host LCD framebuffer; adjust if your driver uses another device. |
 | `FLIP_SCREEN` | `false` | Set `true` to rotate the entire LCD image 180 degrees. |
 | `HDMI_MIRROR` | `false` | Set `true` to show the live LCD content on a TV as well. |
-| `HDMI_DEVICE` | `/dev/fb1` | Separate host HDMI framebuffer; must differ from `FB_DEVICE`. |
+| `HDMI_DEVICE` | `/dev/fb0` | Separate host HDMI framebuffer; must differ from `FB_DEVICE`. |
 | `HISTORY_PORT` | `8081` | County history HTTP port; `0` disables the server. |
 | `BOUNDARY_FILE` | empty | Uses all KML files bundled from `./boundaries`; optionally set an absolute host path to a KML file or directory. |
 
-For a USB GPS running at 4800 baud and an LCD on `/dev/fb0`, edit the existing
+For a USB GPS running at 4800 baud and an LCD on `/dev/fb1`, edit the existing
 lines in `/etc/n4hai-geodetector.env` to read:
 
 ```sh
 IMAGE=n4hai-geodetector:local
 GPS_DEVICE=/dev/ttyUSB0
 GPS_RATE=4800
-FB_DEVICE=/dev/fb0
+FB_DEVICE=/dev/fb1
 FLIP_SCREEN=false
 HDMI_MIRROR=false
-HDMI_DEVICE=/dev/fb1
+HDMI_DEVICE=/dev/fb0
 HISTORY_PORT=8081
 BOUNDARY_FILE=
 ```
@@ -382,7 +383,7 @@ does not read the service environment file; test its rotation explicitly:
 
 ```sh
 sudo systemctl stop n4hai-geodetector.service
-sudo .venv/bin/python test_lcd.py --framebuffer /dev/fb0 --flip-screen
+sudo .venv/bin/python test_lcd.py --framebuffer /dev/fb1 --flip-screen
 sudo systemctl start n4hai-geodetector.service
 ```
 
