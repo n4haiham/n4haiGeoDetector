@@ -357,7 +357,7 @@ class arGeoDetector(Thread):
                             self.logNMEA(buf)
                     
                             # process GPRMC lines for date/time        
-                            m = re.search('^\\$GPRMC', buf)
+                            m = re.search(r'^\$[A-Z]{2}RMC,', buf)
                             if (m):
                                 try:
                                     self.updateNmeaRmcDateTime(buf)
@@ -406,7 +406,7 @@ class arGeoDetector(Thread):
                             self.logNMEA(buf)
                    
                             # process GPRMC lines for date/time        
-                            m = re.search('^\\$GPRMC', buf)
+                            m = re.search(r'^\$[A-Z]{2}RMC,', buf)
                             if (m):
                                 try:
                                     self.updateNmeaRmcDateTime(buf)
@@ -414,7 +414,7 @@ class arGeoDetector(Thread):
                                     pass
         
                             # process GPGGA lines for location
-                            m = re.search('^\\$GPGGA', buf)
+                            m = re.search(r'^\$[A-Z]{2}GGA,', buf)
                             if (m):
                                 changed = 0
                                 # Update time
@@ -483,14 +483,14 @@ class arGeoDetector(Thread):
                 #print(buf)
                 time.sleep(speed)
                 # process GPRMC lines for date/time        
-                m = re.search('^\\$GPRMC', buf)
+                m = re.search(r'^\$[A-Z]{2}RMC,', buf)
                 if (m):
                     try:
                         self.updateNmeaRmcDateTime(buf)
                     except ValueError:
                         pass
                 # process GPGGA lines
-                m = re.search('^\\$GPGGA', buf)
+                m = re.search(r'^\$[A-Z]{2}GGA,', buf)
                 if (m):
                     try:
                         xy = self.getNmeaGgaCoords(buf)
@@ -529,7 +529,7 @@ class arGeoDetector(Thread):
         h = int(nmea_fields[1][:2])
         m = int(nmea_fields[1][2:4])
         s = int(nmea_fields[1][4:6])
-        self.gps_datetime.replace(hour=h, minute=m, second=s)
+        self.gps_datetime = self.gps_datetime.replace(hour=h, minute=m, second=s)
         self.msgCB((geoMsg.TIME, self.gps_datetime.strftime("%Y/%m/%d %H:%M:%S %Z")))
     
     def getNmeaGgaCoords(self, nmea_str):
