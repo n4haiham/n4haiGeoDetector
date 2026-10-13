@@ -45,6 +45,19 @@ Run the test with the virtual environment's Python:
 sudo .venv/bin/python test_lcd.py
 ```
 
+To display only a static callsign in large, centered letters on a black
+background:
+
+```sh
+sudo .venv/bin/python test_lcd.py --show_call N4HAI --color yellow
+```
+
+The letters are sized to fit the screen. The command exits after displaying
+the callsign and leaves it on the LCD without cycling or clearing it.
+`--color` defaults to white and accepts color names or quoted hex values such
+as `--color '#00ff00'`. `--show-call` is also accepted. The framebuffer and
+screen rotation options work with this mode too.
+
 The default LCD framebuffer is `/dev/fb1`. If your LCD is on `/dev/fb0`,
 or you want different sample values:
 
