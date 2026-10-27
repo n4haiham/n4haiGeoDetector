@@ -1,7 +1,8 @@
 [Unit]
 Description=n4haiGeoDetector LCD container
 Requires=docker.service
-After=docker.service network.target
+After=docker.service network.target gpsd.service
+Wants=gpsd.service
 StartLimitIntervalSec=0
 
 [Service]

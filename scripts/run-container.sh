@@ -11,6 +11,8 @@ source "$config"
 : "${IMAGE:=n4hai-geodetector:local}"
 : "${GPS_DEVICE:=/dev/ttyUSB0}"
 : "${GPS_RATE:=4800}"
+: "${GPSD_HOST:=}"
+: "${GPSD_PORT:=2947}"
 : "${FB_DEVICE:=/dev/fb0}"
 : "${FLIP_SCREEN:=false}"
 : "${HISTORY_PORT:=8081}"
@@ -18,7 +20,7 @@ source "$config"
 : "${HDMI_DEVICE:=/dev/fb1}"
 : "${BOUNDARY_FILE:=}"
 
-for device in "$GPS_DEVICE" "$FB_DEVICE"; do
+for device in "$FB_DEVICE"; do
     if [[ ! -c "$device" ]]; then
         echo "Waiting for character device: $device" >&2
         exit 1
@@ -27,13 +29,22 @@ done
 
 docker_args=(run --rm --init --name n4hai-geodetector
     --network host
-    --device "$GPS_DEVICE:/dev/gps"
     --device "$FB_DEVICE:/dev/fb0"
     --mount type=volume,source=n4hai-geodetector-data,target=/data
     --mount type=bind,source=/sys,target=/host-sys,readonly
     --mount type=bind,source=/proc/uptime,target=/host-uptime,readonly
     --log-opt max-size=10m --log-opt max-file=3)
-app_args=(python displaygeo.py --port /dev/gps --rate "$GPS_RATE" --history-port "$HISTORY_PORT")
+app_args=(python displaygeo.py --history-port "$HISTORY_PORT")
+if [[ -n "$GPSD_HOST" ]]; then
+    app_args+=(--gpsd-host "$GPSD_HOST" --gpsd-port "$GPSD_PORT")
+else
+    if [[ ! -c "$GPS_DEVICE" ]]; then
+        echo "Waiting for GPS character device: $GPS_DEVICE" >&2
+        exit 1
+    fi
+    docker_args+=(--device "$GPS_DEVICE:/dev/gps")
+    app_args+=(--port /dev/gps --rate "$GPS_RATE")
+fi
 case "${HDMI_MIRROR,,}" in
     true|1|yes)
         if [[ ! -c "$HDMI_DEVICE" || "$HDMI_DEVICE" -ef "$FB_DEVICE" ]]; then
