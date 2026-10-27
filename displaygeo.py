@@ -22,6 +22,7 @@ from arGeoDetector import geoBase, geoMsg
 from county_history_web import make_server
 from pi_status import StatusCycle
 from hdmi_mirror import HDMIMirror
+from gpsd_reader import GPSDReader
 
 WIDTH = 480
 HEIGHT = 320
@@ -81,6 +82,7 @@ class GeoDisplay(geoBase):
         self.gps_fix = None
         self.gps_satellites = None
         self.gps_update_at = None
+        self.gps_utc = None
         super().__init__(opts, self.geoCB)
         self.county_log = os.path.join(self.appDirs.user_config_dir, "county_entries.csv")
         self.log_county_event("startup")
@@ -102,13 +104,18 @@ class GeoDisplay(geoBase):
                 self.state_abbr = value[2] if len(value) > 2 else ""
                 identity = (self.state_abbr, self.county_abbr, self.county)
                 if self.county_abbr not in ("", "UNK", "-") and identity != self.last_county:
-                    self.entered_at = datetime.datetime.now(datetime.timezone.utc)
+                    self.entered_at = self.gps_utc if self.opts.gpsd_host else datetime.datetime.now(datetime.timezone.utc)
+                    if self.entered_at is None:
+                        return
                     self.entered_monotonic = time.monotonic()
                     self.county_highlight_until = self.entered_monotonic + 60
                     self.last_county = identity
                     self.log_county_event("county_entered", self.entered_at)
             elif msg_type == geoMsg.STAT:
                 self.status = value
+            elif msg_type == geoMsg.TIME:
+                if isinstance(value, datetime.datetime):
+                    self.gps_utc = value
             elif msg_type == geoMsg.GPS_STATUS:
                 self.gps_fix, self.gps_satellites = value
                 self.gps_update_at = time.monotonic()
@@ -172,6 +179,12 @@ class GeoDisplay(geoBase):
             self.detector_thread.start()
             return
 
+        if self.opts.gpsd_host:
+            self.detector_thread = GPSDReader(self.geoDet, self.geoCB,
+                                              self.opts.gpsd_host, self.opts.gpsd_port)
+            self.detector_thread.start()
+            return
+
         try:
             self.serial.port = self.config.get('SERIAL','port')
             self.serial.baudrate = int(self.config.get('SERIAL','rate', fallback=4800))
@@ -185,7 +198,10 @@ class GeoDisplay(geoBase):
         self.detector_thread = self.geoDet
 
     def stop_detector(self):
-        self.geoDet.stop()
+        if isinstance(self.detector_thread, GPSDReader):
+            self.detector_thread.stop()
+        else:
+            self.geoDet.stop()
         if self.detector_thread and self.detector_thread.is_alive():
             self.detector_thread.join(timeout=5)
         self.writeSettings()
@@ -287,6 +303,10 @@ def generateLCDImage(geo_display):
 
 def main():
     parser = OptionParser()
+    parser.add_option("--gpsd-host", default=None,
+                    help="Use GPSD TCP instead of serial (e.g. 127.0.0.1)")
+    parser.add_option("--gpsd-port", type="int", default=2947,
+                    help="GPSD TCP port (default: 2947)")
     parser.add_option("-p", "--port", dest="port",
                     help="GPS serial port")
     parser.add_option("-r", "--rate", dest="rate",type="int",
