@@ -109,7 +109,7 @@ class GPSDReader(threading.Thread):
             return  # Do not label a county entry with an unverified system timestamp.
         self.detector.gps_datetime = timestamp
         self.detector.gps_lock = True
-        self.callback((geoMsg.TIME, timestamp.strftime("%Y/%m/%d %H:%M:%S UTC")))
+        self.callback((geoMsg.TIME, timestamp))
         xy = (float(lon), float(lat))
         grid = self.detector.calcGridSquare(xy)
         county = self.detector.findCAIC(xy)
