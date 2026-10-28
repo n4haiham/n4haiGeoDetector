@@ -1,0 +1,23 @@
+[Unit]
+Description=n4haiGeoDetector - Native Python County Detector
+After=local-fs.target
+Wants=network.target
+After=network.target
+[Service]
+Type=simple
+# Preview release: root access is needed for framebuffer and serial devices.
+# Future release will use a dedicated account and device group permissions.
+User=root
+Environment=HOME=/var/lib/n4hai-geodetector
+WorkingDirectory=/opt/n4hai-geodetector
+ExecStart=/usr/local/bin/n4hai-geodetector-native
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=20
+NoNewPrivileges=true
+ProtectSystem=full
+ReadWritePaths=/var/lib/n4hai-geodetector
+StandardOutput=journal
+StandardError=journal
+[Install]
+WantedBy=multi-user.target
