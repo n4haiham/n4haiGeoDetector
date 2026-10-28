@@ -295,7 +295,7 @@ def main():
                     help="NMEA data file for replay processing")
     parser.add_option("-b", "--boundary", dest="bndfile",
                     help="Boundary KML file or directory (default: ./boundaries)")
-    parser.add_option("--flip-screen", action="store_true", default=False,
+    parser.add_option("--framebuffer", default="/dev/fb0",\n                    help="LCD framebuffer device (default /dev/fb0)")\n    parser.add_option("--flip-screen", action="store_true", default=False,
                     help="Rotate the LCD image 180 degrees")
     parser.add_option("--history-host", default="0.0.0.0",
                     help="County history web interface (default: 0.0.0.0)")
@@ -330,9 +330,9 @@ def main():
         while True:
             if (geo_display.mode == 0 and geo_display.detector_thread
                     and not geo_display.detector_thread.is_alive()):
-                raise RuntimeError("GPS detector stopped; restarting the container is required")
+                raise RuntimeError("GPS detector stopped; systemd restart is required")
             img = generateLCDImage(geo_display)
-            write_fb(img, flip_screen=opts.flip_screen)
+            write_fb(img, device=opts.framebuffer, flip_screen=opts.flip_screen)
             if hdmi:
                 hdmi.write(img)
             time.sleep(0.2)
