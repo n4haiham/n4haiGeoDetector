@@ -1,5 +1,51 @@
 # n4haiGeoDetector
 
+## Native Python installation (v1.0 development preview)
+
+**Status:** Experimental; not yet tested on a clean Raspberry Pi. This section applies to the `v1-native-python` branch. The older Docker instructions below remain for existing installations.
+
+### Hardware and prerequisites
+
+- Raspberry Pi OS with systemd, Python 3, and Internet access during installation
+- USB GPS receiver exposing `/dev/ttyUSB*`, `/dev/ttyACM*`, or a stable `/dev/serial/by-id/` link
+- Working **480x320 RGB565** SPI LCD framebuffer (driver must already be installed)
+- County KML boundary files. The `boundaries/` directory is not necessarily included in Git, so supply your existing KML files when prompted.
+
+The installer discovers framebuffer and GPS device candidates, but **does not yet automatically verify pixel layout or a valid NMEA fix**. It asks you to confirm the LCD configuration. GPSD and chrony setup are not changed.
+
+### Install
+
+```bash
+git clone --branch v1-native-python https://github.com/n4haiham/n4haiGeoDetector.git
+cd n4haiGeoDetector
+sudo bash install.sh
+```
+
+The installer places application files under `/opt/n4hai-geodetector`, persistent application data under `/var/lib/n4hai-geodetector`, and writes native settings to `/etc/n4hai-geodetector-native.env`. It creates a Python virtual environment and registers the existing service name `n4hai-geodetector.service`.
+
+**Important:** The current app accesses the GPS serial device directly. If GPSD already owns that device, stop or reconfigure GPSD before starting the native service. Do not stop GPSD blindly if chrony depends on it.
+
+After installation:
+
+```bash
+sudo systemctl start n4hai-geodetector.service
+sudo systemctl status n4hai-geodetector.service
+sudo journalctl -u n4hai-geodetector.service -f
+```
+
+The browser history is available at `http://PI-IP:8081/` on your trusted LAN. It exposes location history without authentication. Avoid forwarding this port to the Internet.
+
+### Migration and rollback notes
+
+The installer backs up the previous systemd unit and Docker environment file to a timestamped directory under `/var/lib/n4hai-geodetector/`. It does **not** delete Docker images or volumes. Existing Docker county history is **not automatically imported**; back up and migrate the `n4hai-geodetector-data` volume before relying on the new installation. The native app currently writes history to `/var/lib/n4hai-geodetector/.config/arGeoDetector/county_entries.csv`.
+
+The installer copies application code to `/opt` and uses the same service name as Docker, so both variants cannot run simultaneously. To roll back, stop the service, restore the saved unit file, run `sudo systemctl daemon-reload`, and start the old service. Confirm the original Docker launcher and settings still exist.
+
+This is an initial implementation, **not a production-ready QST release**. Remaining work includes reliable LCD format checks, live GPS NMEA validation, automatic history migration, installer rollback on failure, and clean-SD-card testing.
+
+---
+
+
 ![LCD showing FAU, Fauquier, grid FM18aw, entry time, elapsed time, and GPS status](docs/images/lcd-sample.png)
 
 Provides city, county, state, and gridsquare location information on a Raspberry Pi equipped with a 3.5" LCD screen.  Other display options to be developed in the future.
