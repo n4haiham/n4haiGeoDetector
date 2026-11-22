@@ -6,6 +6,39 @@ Provides city, county, state, and gridsquare location information on a Raspberry
 
 The image above shows sample location and GPS status in the app's 480x320 LCD layout.
 
+## Install the ILI9486 SPI LCD driver
+
+For a PiScreen-compatible 3.5-inch ILI9486 (480×320), run the standalone
+installer on Raspberry Pi OS:
+
+```sh
+sudo bash scripts/install-lcd.sh --framebuffer /dev/fb0
+sudo reboot
+```
+
+The script uses the built-in `piscreen` overlay, installs Pillow and a font,
+backs up boot configuration, and enables a boot test displaying **LCD is working**
+in white on black. Its rendering follows `test_lcd.py`: fit large bold text to
+the screen, center it, and write RGB565 pixels. It needs no other project files.
+The wiring profile uses BCM DC24, reset25, backlight22, SPI0 CE0 for the display,
+and CE1/IRQ17 for touch. Confirm your board uses this wiring. Default rotation
+is 270; `--rotate 90` provides the opposite landscape orientation.
+
+The framebuffer must be an ILI9486-driven 480×320 RGB565 device; the script
+refuses to draw into an HDMI framebuffer. Framebuffer numbers can change when
+other displays are attached. Driver binding also replaces the corresponding
+`/dev/spidev0.*` devices. Existing LCD overlays must be reconciled before installation.
+The overlay is loaded at reboot; the installer does not reboot automatically.
+Another display application can overwrite the test message.
+
+After verifying the screen, disable the boot test:
+
+```sh
+sudo systemctl disable n4hai-lcd-test.service
+```
+
+For diagnostics, use `sudo journalctl -u n4hai-lcd-test.service -b --no-pager`.
+
 ## Test the LCD directly on the Pi
 
 The LCD driver must already expose a 480x320 RGB565 framebuffer compatible with
